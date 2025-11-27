@@ -1,8 +1,5 @@
 import asyncio
-from ig import place_market_with_sl_tp
-import os
-
-# For production, you’d pull from persistent KV / DB
+from api.ig import place_market_with_sl_tp
 from api.webhook import queue
 
 async def process_queue():
@@ -21,4 +18,3 @@ async def handler(event, context):
     except Exception as e:
         print("Error processing queue:", str(e))
     return {"statusCode": 200, "body": "Queue processed"}
-
