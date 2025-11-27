@@ -1,3 +1,4 @@
+import os
 import json
 from ig import place_market_with_sl_tp
 
@@ -7,7 +8,7 @@ def handler(request, response):
 
     try:
         data = request.json()
-    except:
+    except Exception:
         return response.status(400).json({"error": "invalid_json"})
 
     if not data:
@@ -23,12 +24,10 @@ def handler(request, response):
     if not side or not epic or not trade_id:
         return response.status(400).json({"error": "missing_fields", "received": data})
 
-    # Default qty
     try:
         qty = float(qty)
     except:
-        from os import getenv
-        qty = float(getenv("TRADE_SIZE", 0.1))
+        qty = float(os.environ.get("TRADE_SIZE", 0.1))
 
     result = place_market_with_sl_tp(side, epic, qty, sl_level=sl, tp_level=tp)
 
