@@ -1,10 +1,8 @@
 import json
 import os
-import time
+from vercel_kv import Client
 
-# Simple in-memory queue (for demo purposes)
-# For production, replace with Vercel KV or Redis
-queue = []
+kv = Client()
 
 async def handler(event, context):
     try:
@@ -22,18 +20,15 @@ async def handler(event, context):
     if not side or not epic or not trade_id:
         return {"statusCode": 400, "body": json.dumps({"error": "missing_fields"})}
 
-    # Queue the trade
-    queue.append({
+    # Save to Vercel KV
+    await kv.set(f"trade:{trade_id}", json.dumps({
         "side": side,
         "epic": epic,
         "qty": qty,
-        "trade_id": trade_id,
         "sl": sl,
-        "tp": tp,
-        "ts": time.time()
-    })
+        "tp": tp
+    }))
 
     print(f"Queued trade {trade_id}: {side} {epic} {qty}")
 
-    # Return immediately to TradingView
     return {"statusCode": 200, "body": json.dumps({"status": "queued", "trade_id": trade_id})}
