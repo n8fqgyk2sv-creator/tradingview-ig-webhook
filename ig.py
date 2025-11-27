@@ -7,24 +7,27 @@ def get_env_var(key, default=None):
         print(f"Warning: {key} not set in environment variables")
     return value
 
-API_KEY = get_env_var("IG_API_KEY")
-IG_USERNAME = get_env_var("IG_USERNAME")
-IG_PASSWORD = get_env_var("IG_PASSWORD")
-IG_API_URL = get_env_var("IG_API_URL", "https://demo-api.ig.com/gateway/deal")
-
-HEADERS_BASE = {
-    "X-IG-API-KEY": API_KEY or "",
-    "Content-Type": "application/json",
-    "Accept": "application/json",
-    "VERSION": "2"
-}
-
 def ig_login():
+    API_KEY = get_env_var("IG_API_KEY")
+    IG_USERNAME = get_env_var("IG_USERNAME")
+    IG_PASSWORD = get_env_var("IG_PASSWORD")
+    IG_API_URL = get_env_var("IG_API_URL", "https://demo-api.ig.com/gateway/deal")
+
     if not all([API_KEY, IG_USERNAME, IG_PASSWORD]):
         return {"error": "missing_credentials"}
-    body = {"identifier": IG_USERNAME, "password": IG_PASSWORD}
+
+    headers = {
+        "X-IG-API-KEY": API_KEY,
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "VERSION": "2"
+    }
+
     try:
-        r = requests.post(f"{IG_API_URL}/session", json=body, headers=HEADERS_BASE, timeout=10)
+        r = requests.post(f"{IG_API_URL}/session",
+                          json={"identifier": IG_USERNAME, "password": IG_PASSWORD},
+                          headers=headers,
+                          timeout=10)
         r.raise_for_status()
     except Exception as e:
         return {"error": "login_failed", "exception": str(e)}
@@ -35,13 +38,21 @@ def ig_login():
     }
 
 def make_headers(tokens):
-    h = HEADERS_BASE.copy()
+    API_KEY = get_env_var("IG_API_KEY")
+    headers = {
+        "X-IG-API-KEY": API_KEY or "",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "VERSION": "2"
+    }
     if tokens:
-        h["CST"] = tokens.get("CST")
-        h["X-SECURITY-TOKEN"] = tokens.get("XST")
-    return h
+        headers["CST"] = tokens.get("CST")
+        headers["X-SECURITY-TOKEN"] = tokens.get("XST")
+    return headers
 
 def place_market_with_sl_tp(direction, epic, size, sl_level=None, tp_level=None):
+    IG_API_URL = get_env_var("IG_API_URL", "https://demo-api.ig.com/gateway/deal")
+
     tokens = ig_login()
     if "error" in tokens:
         return tokens
@@ -50,7 +61,7 @@ def place_market_with_sl_tp(direction, epic, size, sl_level=None, tp_level=None)
     order = {
         "epic": epic,
         "expiry": "-",
-        "direction": "BUY" if direction.lower() in ["buy","long"] else "SELL",
+        "direction": "BUY" if str(direction).lower() in ["buy","long"] else "SELL",
         "size": float(size),
         "orderType": "MARKET",
         "forceOpen": True,
@@ -65,7 +76,10 @@ def place_market_with_sl_tp(direction, epic, size, sl_level=None, tp_level=None)
 
     try:
         r = requests.post(f"{IG_API_URL}/positions/otc", json=order, headers=headers, timeout=10)
-        res = r.json()
+        try:
+            res = r.json()
+        except:
+            res = {"text": r.text, "status_code": r.status_code}
     except Exception as e:
         return {"error": "request_failed", "exception": str(e)}
 
