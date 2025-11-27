@@ -1,17 +1,17 @@
 import os
-import requests
+import httpx
 
-def get_env_var(key, default=None):
+async def get_env_var(key, default=None):
     value = os.environ.get(key, default)
     if value is None:
         print(f"Warning: {key} not set in environment variables")
     return value
 
-def ig_login():
-    API_KEY = get_env_var("IG_API_KEY")
-    IG_USERNAME = get_env_var("IG_USERNAME")
-    IG_PASSWORD = get_env_var("IG_PASSWORD")
-    IG_API_URL = get_env_var("IG_API_URL", "https://demo-api.ig.com/gateway/deal")
+async def ig_login():
+    API_KEY = os.environ.get("IG_API_KEY")
+    IG_USERNAME = os.environ.get("IG_USERNAME")
+    IG_PASSWORD = os.environ.get("IG_PASSWORD")
+    IG_API_URL = os.environ.get("IG_API_URL", "https://demo-api.ig.com/gateway/deal")
 
     if not all([API_KEY, IG_USERNAME, IG_PASSWORD]):
         return {"error": "missing_credentials"}
@@ -23,41 +23,35 @@ def ig_login():
         "VERSION": "2"
     }
 
-    try:
-        r = requests.post(f"{IG_API_URL}/session",
-                          json={"identifier": IG_USERNAME, "password": IG_PASSWORD},
-                          headers=headers,
-                          timeout=10)
-        r.raise_for_status()
-    except requests.RequestException as e:
-        return {"error": "login_failed", "exception": str(e)}
+    async with httpx.AsyncClient(timeout=10) as client:
+        try:
+            r = await client.post(f"{IG_API_URL}/session",
+                                  json={"identifier": IG_USERNAME, "password": IG_PASSWORD},
+                                  headers=headers)
+            r.raise_for_status()
+        except httpx.RequestError as e:
+            return {"error": "login_failed", "exception": str(e)}
 
     return {
         "CST": r.headers.get("CST"),
         "XST": r.headers.get("X-SECURITY-TOKEN")
     }
 
-def make_headers(tokens):
-    API_KEY = get_env_var("IG_API_KEY")
-    headers = {
-        "X-IG-API-KEY": API_KEY or "",
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-        "VERSION": "2"
-    }
-    if tokens:
-        headers["CST"] = tokens.get("CST")
-        headers["X-SECURITY-TOKEN"] = tokens.get("XST")
-    return headers
-
-def place_market_with_sl_tp(direction, epic, size, sl_level=None, tp_level=None):
-    IG_API_URL = get_env_var("IG_API_URL", "https://demo-api.ig.com/gateway/deal")
-
-    tokens = ig_login()
+async def place_market_with_sl_tp(direction, epic, size, sl_level=None, tp_level=None):
+    IG_API_URL = os.environ.get("IG_API_URL", "https://demo-api.ig.com/gateway/deal")
+    tokens = await ig_login()
     if "error" in tokens:
         return tokens
 
-    headers = make_headers(tokens)
+    headers = {
+        "X-IG-API-KEY": os.environ.get("IG_API_KEY") or "",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "VERSION": "2",
+        "CST": tokens.get("CST"),
+        "X-SECURITY-TOKEN": tokens.get("XST")
+    }
+
     order = {
         "epic": epic,
         "expiry": "-",
@@ -74,13 +68,14 @@ def place_market_with_sl_tp(direction, epic, size, sl_level=None, tp_level=None)
     if tp_level is not None:
         order["limitLevel"] = float(tp_level)
 
-    try:
-        r = requests.post(f"{IG_API_URL}/positions/otc", json=order, headers=headers, timeout=10)
+    async with httpx.AsyncClient(timeout=10) as client:
         try:
-            res = r.json()
-        except:
-            res = {"text": r.text, "status_code": r.status_code}
-    except requests.RequestException as e:
-        return {"error": "request_failed", "exception": str(e)}
+            r = await client.post(f"{IG_API_URL}/positions/otc", json=order, headers=headers)
+            try:
+                res = r.json()
+            except:
+                res = {"text": r.text, "status_code": r.status_code}
+        except httpx.RequestError as e:
+            return {"error": "request_failed", "exception": str(e)}
 
     return {"status_code": r.status_code, "response": res}
