@@ -1,41 +1,35 @@
 import json
-import time
 import os
+import time
 
-# Simple in-memory queue (serverless-safe: stores short-term in RAM)
-# For production, use Vercel KV or Redis for persistence
+# Simple in-memory queue (for demo purposes)
+# For production, replace with Vercel KV or Redis
 queue = []
 
-def handler(event, context):
+async def handler(event, context):
     try:
         body = json.loads(event.get("body") or "{}")
     except Exception as e:
-        print("JSON parse error:", str(e))
         return {"statusCode": 400, "body": json.dumps({"error": "invalid_json", "exception": str(e)})}
 
     side = body.get("side")
     epic = body.get("epic")
+    qty = float(body.get("qty", os.environ.get("TRADE_SIZE", 0.1)))
+    trade_id = body.get("trade_id")
     sl = body.get("sl")
     tp = body.get("tp")
-    qty = body.get("qty")
-    trade_id = body.get("trade_id")
 
     if not side or not epic or not trade_id:
-        return {"statusCode": 400, "body": json.dumps({"error": "missing_fields", "received": body})}
+        return {"statusCode": 400, "body": json.dumps({"error": "missing_fields"})}
 
-    try:
-        qty = float(qty)
-    except:
-        qty = float(os.environ.get("TRADE_SIZE", 0.1))
-
-    # Append to queue with timestamp
+    # Queue the trade
     queue.append({
         "side": side,
         "epic": epic,
-        "sl": sl,
-        "tp": tp,
         "qty": qty,
         "trade_id": trade_id,
+        "sl": sl,
+        "tp": tp,
         "ts": time.time()
     })
 
