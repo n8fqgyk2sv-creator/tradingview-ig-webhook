@@ -29,7 +29,7 @@ def ig_login():
                           headers=headers,
                           timeout=10)
         r.raise_for_status()
-    except Exception as e:
+    except requests.RequestException as e:
         return {"error": "login_failed", "exception": str(e)}
 
     return {
@@ -80,7 +80,7 @@ def place_market_with_sl_tp(direction, epic, size, sl_level=None, tp_level=None)
             res = r.json()
         except:
             res = {"text": r.text, "status_code": r.status_code}
-    except Exception as e:
+    except requests.RequestException as e:
         return {"error": "request_failed", "exception": str(e)}
 
     return {"status_code": r.status_code, "response": res}
