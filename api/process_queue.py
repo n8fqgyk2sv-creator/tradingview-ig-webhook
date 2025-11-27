@@ -1,9 +1,8 @@
 import json
-import asyncio
-from vercel_kv import Client
+from vercel import KV
 from api.ig import place_market_with_sl_tp
 
-kv = Client()
+kv = KV()
 
 async def handler(event, context):
     keys = await kv.keys("trade:*")
@@ -21,7 +20,7 @@ async def handler(event, context):
 
         print(f"Result for {trade_id}: {result}")
 
-        # Remove from KV after processing
+        # Remove trade after processing
         await kv.delete(key)
 
     return {"statusCode": 200, "body": "Queue processed"}
