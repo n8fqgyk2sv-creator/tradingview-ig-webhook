@@ -1,46 +1,39 @@
-# api/webhook.py
-import os, time, json
-from flask import Flask, request, jsonify
+import json
 from ig import place_market_with_sl_tp
 
-app = Flask(__name__)
-recent_trades = {}
-RECENT_TTL = 60*60
+def handler(request, response):
+    if request.method != "POST":
+        return response.status(405).send("Method Not Allowed")
 
-def is_duplicate(trade_id):
-    now = time.time()
-    for k, v in list(recent_trades.items()):
-        if now - v > RECENT_TTL:
-            del recent_trades[k]
-    return trade_id in recent_trades
+    try:
+        data = request.json()
+    except:
+        return response.status(400).json({"error": "invalid_json"})
 
-def mark_done(trade_id):
-    recent_trades[trade_id] = time.time()
-
-@app.route("/api/webhook", methods=["POST"])
-def webhook():
-    data = request.get_json(force=True, silent=True)
     if not data:
-        return jsonify({"error": "no_json"}), 400
+        return response.status(400).json({"error": "no_json"})
 
     side = data.get("side")
     epic = data.get("epic")
-    sl = data.get("sl", None)
-    tp = data.get("tp", None)
-    qty = data.get("qty", None)
-    trade_id = data.get("trade_id", None)
+    sl = data.get("sl")
+    tp = data.get("tp")
+    qty = data.get("qty")
+    trade_id = data.get("trade_id")
 
     if not side or not epic or not trade_id:
-        return jsonify({"error":"missing_fields","received":data}), 400
+        return response.status(400).json({"error": "missing_fields", "received": data})
 
-    if is_duplicate(trade_id):
-        return jsonify({"status":"ignored","reason":"duplicate","trade_id":trade_id}), 200
-
+    # Default qty
     try:
         qty = float(qty)
     except:
-        qty = float(os.environ.get("TRADE_SIZE", 0.1))
+        from os import getenv
+        qty = float(getenv("TRADE_SIZE", 0.1))
 
     result = place_market_with_sl_tp(side, epic, qty, sl_level=sl, tp_level=tp)
-    mark_done(trade_id)
-    return jsonify({"status":"order_attempted","payload":data,"result":result})
+
+    return response.status(200).json({
+        "status": "order_attempted",
+        "payload": data,
+        "result": result
+    })
