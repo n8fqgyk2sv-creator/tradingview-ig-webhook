@@ -1,13 +1,13 @@
 import os
 import json
+import time
 from ig import place_market_with_sl_tp
 
-# Simple in-memory duplicate protection
+# In-memory duplicate prevention
 recent_trades = {}
 RECENT_TTL = 60*60  # 1 hour
 
 def handler(event, context):
-    # Parse POST body
     try:
         body = json.loads(event.get("body") or "{}")
     except Exception:
@@ -23,10 +23,8 @@ def handler(event, context):
     if not side or not epic or not trade_id:
         return {"statusCode": 400, "body": json.dumps({"error": "missing_fields", "received": body})}
 
-    # duplicate prevention
-    import time
+    # Clean old trades and prevent duplicates
     now = time.time()
-    # clean up old trades
     for k in list(recent_trades.keys()):
         if now - recent_trades[k] > RECENT_TTL:
             del recent_trades[k]
