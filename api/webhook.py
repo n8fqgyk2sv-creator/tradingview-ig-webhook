@@ -1,8 +1,8 @@
 import json
 import os
-from vercel_kv import Client
+from vercel import KV
 
-kv = Client()
+kv = KV()  # Correct KV client
 
 async def handler(event, context):
     try:
@@ -20,7 +20,7 @@ async def handler(event, context):
     if not side or not epic or not trade_id:
         return {"statusCode": 400, "body": json.dumps({"error": "missing_fields"})}
 
-    # Save to Vercel KV
+    # Store trade in KV
     await kv.set(f"trade:{trade_id}", json.dumps({
         "side": side,
         "epic": epic,
