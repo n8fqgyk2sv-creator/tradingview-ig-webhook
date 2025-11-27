@@ -1,12 +1,6 @@
 import os
 import httpx
 
-async def get_env_var(key, default=None):
-    value = os.environ.get(key, default)
-    if value is None:
-        print(f"Warning: {key} not set in environment variables")
-    return value
-
 async def ig_login():
     API_KEY = os.environ.get("IG_API_KEY")
     IG_USERNAME = os.environ.get("IG_USERNAME")
