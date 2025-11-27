@@ -1,3 +1,2 @@
-httpx
-anyio
-vercel
+requests
+Flask
