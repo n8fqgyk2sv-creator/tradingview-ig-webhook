@@ -1,27 +1,34 @@
-# ig.py
-import os, requests, time
+import os
+import requests
 
-API_KEY = os.environ.get("IG_API_KEY")
-IG_USERNAME = os.environ.get("IG_USERNAME")
-IG_PASSWORD = os.environ.get("IG_PASSWORD")
-IG_API_URL = os.environ.get("IG_API_URL", "https://demo-api.ig.com/gateway/deal")
+def get_env_var(key, default=None):
+    value = os.environ.get(key, default)
+    if value is None:
+        print(f"Warning: {key} not set in environment variables")
+    return value
 
-if not all([API_KEY, IG_USERNAME, IG_PASSWORD]):
-    # Prevent import-time crash
-    print("Missing IG credentials in environment variables")
+API_KEY = get_env_var("IG_API_KEY")
+IG_USERNAME = get_env_var("IG_USERNAME")
+IG_PASSWORD = get_env_var("IG_PASSWORD")
+IG_API_URL = get_env_var("IG_API_URL", "https://demo-api.ig.com/gateway/deal")
 
 HEADERS_BASE = {
-    "X-IG-API-KEY": API_KEY,
+    "X-IG-API-KEY": API_KEY or "",
     "Content-Type": "application/json",
     "Accept": "application/json",
     "VERSION": "2"
 }
 
 def ig_login():
+    if not all([API_KEY, IG_USERNAME, IG_PASSWORD]):
+        return {"error": "missing_credentials"}
     body = {"identifier": IG_USERNAME, "password": IG_PASSWORD}
-    r = requests.post(f"{IG_API_URL}/session", json=body, headers=HEADERS_BASE, timeout=10)
-    if r.status_code != 200:
-        return {"error": "login_failed", "status": r.status_code, "text": r.text}
+    try:
+        r = requests.post(f"{IG_API_URL}/session", json=body, headers=HEADERS_BASE, timeout=10)
+        r.raise_for_status()
+    except Exception as e:
+        return {"error": "login_failed", "exception": str(e)}
+
     return {
         "CST": r.headers.get("CST"),
         "XST": r.headers.get("X-SECURITY-TOKEN")
@@ -58,12 +65,8 @@ def place_market_with_sl_tp(direction, epic, size, sl_level=None, tp_level=None)
 
     try:
         r = requests.post(f"{IG_API_URL}/positions/otc", json=order, headers=headers, timeout=10)
-    except Exception as e:
-        return {"error":"request_failed","exception":str(e)}
-
-    try:
         res = r.json()
-    except:
-        return {"error":"invalid_response","status_code": r.status_code, "text": r.text}
+    except Exception as e:
+        return {"error": "request_failed", "exception": str(e)}
 
     return {"status_code": r.status_code, "response": res}
