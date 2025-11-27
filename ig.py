@@ -19,9 +19,11 @@ async def ig_login():
 
     async with httpx.AsyncClient(timeout=10) as client:
         try:
-            r = await client.post(f"{IG_API_URL}/session",
-                                  json={"identifier": IG_USERNAME, "password": IG_PASSWORD},
-                                  headers=headers)
+            r = await client.post(
+                f"{IG_API_URL}/session",
+                json={"identifier": IG_USERNAME, "password": IG_PASSWORD},
+                headers=headers
+            )
             r.raise_for_status()
         except httpx.RequestError as e:
             return {"error": "login_failed", "exception": str(e)}
