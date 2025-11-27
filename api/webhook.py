@@ -2,27 +2,27 @@ import os
 import json
 from ig import place_market_with_sl_tp
 
-def handler(request, response):
-    if request.method != "POST":
-        return response.status(405).send("Method Not Allowed")
-
+def handler(event, context):
     try:
-        data = request.json()
+        body = json.loads(event.get("body", "{}"))
     except Exception:
-        return response.status(400).json({"error": "invalid_json"})
+        return {
+            "statusCode": 400,
+            "body": json.dumps({"error": "invalid_json"})
+        }
 
-    if not data:
-        return response.status(400).json({"error": "no_json"})
-
-    side = data.get("side")
-    epic = data.get("epic")
-    sl = data.get("sl")
-    tp = data.get("tp")
-    qty = data.get("qty")
-    trade_id = data.get("trade_id")
+    side = body.get("side")
+    epic = body.get("epic")
+    sl = body.get("sl")
+    tp = body.get("tp")
+    qty = body.get("qty")
+    trade_id = body.get("trade_id")
 
     if not side or not epic or not trade_id:
-        return response.status(400).json({"error": "missing_fields", "received": data})
+        return {
+            "statusCode": 400,
+            "body": json.dumps({"error": "missing_fields", "received": body})
+        }
 
     try:
         qty = float(qty)
@@ -31,8 +31,11 @@ def handler(request, response):
 
     result = place_market_with_sl_tp(side, epic, qty, sl_level=sl, tp_level=tp)
 
-    return response.status(200).json({
-        "status": "order_attempted",
-        "payload": data,
-        "result": result
-    })
+    return {
+        "statusCode": 200,
+        "body": json.dumps({
+            "status": "order_attempted",
+            "payload": body,
+            "result": result
+        })
+    }
