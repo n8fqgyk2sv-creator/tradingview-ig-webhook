@@ -5,7 +5,10 @@ API_KEY = os.environ.get("IG_API_KEY")
 IG_USERNAME = os.environ.get("IG_USERNAME")
 IG_PASSWORD = os.environ.get("IG_PASSWORD")
 IG_API_URL = os.environ.get("IG_API_URL", "https://demo-api.ig.com/gateway/deal")
-ACCOUNT_ID = os.environ.get("IG_ACCOUNT_ID")  # optional
+
+if not all([API_KEY, IG_USERNAME, IG_PASSWORD]):
+    # Prevent import-time crash
+    print("Missing IG credentials in environment variables")
 
 HEADERS_BASE = {
     "X-IG-API-KEY": API_KEY,
