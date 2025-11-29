@@ -2,14 +2,27 @@ from http.server import BaseHTTPRequestHandler
 import json
 import requests
 import os
+import datetime
 
-# IG API credentials — store these as environment variables in Vercel
+# --------------------------
+# Environment Variables (set in Vercel)
+# --------------------------
 IG_API_KEY = os.environ.get("IG_API_KEY")
 IG_USERNAME = os.environ.get("IG_USERNAME")
 IG_PASSWORD = os.environ.get("IG_PASSWORD")
 IG_ACC_TYPE = os.environ.get("IG_ACC_TYPE", "DEMO")  # DEMO or LIVE
-IG_BASE_URL = "https://demo-api.ig.com/gateway/deal" if IG_ACC_TYPE=="DEMO" else "https://api.ig.com/gateway/deal"
 
+IG_BASE_URL = "https://demo-api.ig.com/gateway/deal" if IG_ACC_TYPE.upper() == "DEMO" else "https://api.ig.com/gateway/deal"
+
+# Known tickers allowed
+ALLOWED_TICKERS = ["CS.D.EURUSD.CFD.IP", "CS.D.GBPUSD.CFD.IP"]  # Add the tickers you want
+
+# Max order size
+DEFAULT_ORDER_SIZE = 1
+
+# --------------------------
+# Handler Class
+# --------------------------
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
         # Read the incoming JSON payload
@@ -20,30 +33,41 @@ class handler(BaseHTTPRequestHandler):
         except Exception:
             payload = {}
 
-        print("Received payload:", payload)
+        # Log payload with timestamp
+        timestamp = datetime.datetime.utcnow().isoformat()
+        print(f"[{timestamp}] Received payload:", payload)
 
-        # Example: Extract info from TradingView alert
+        # Validate payload
         ticker = payload.get("ticker")
         price = payload.get("price")
         alert_name = payload.get("alert_name")
 
-        # Only send order if we have required info
-        if ticker and price and alert_name:
-            self.send_ig_order(ticker, price, alert_name)
+        if not ticker or not price or not alert_name:
+            print(f"[{timestamp}] Missing required fields. Ignoring alert.")
+            return self.respond_ok()
 
-        # Respond OK
-        self.send_response(200)
-        self.send_header('Content-Type', 'application/json')
-        self.end_headers()
-        response = json.dumps({"status": "ok"})
-        self.wfile.write(response.encode('utf-8'))
+        if ticker not in ALLOWED_TICKERS:
+            print(f"[{timestamp}] Ticker {ticker} not allowed. Ignoring alert.")
+            return self.respond_ok()
 
+        direction = alert_name.upper()
+        if direction not in ["BUY", "SELL"]:
+            print(f"[{timestamp}] Invalid alert_name: {alert_name}. Must be BUY or SELL. Ignoring alert.")
+            return self.respond_ok()
+
+        # Send order to IG
+        self.send_ig_order(ticker, price, direction)
+
+        # Respond to TradingView
+        return self.respond_ok()
+
+    # --------------------------
+    # Send order to IG.com
+    # --------------------------
     def send_ig_order(self, epic, price, direction):
-        """
-        Sends a simple market order to IG.com via REST API
-        """
+        timestamp = datetime.datetime.utcnow().isoformat()
         try:
-            # Step 1: Authenticate and get X-SECURITY-TOKEN + C-SRF-TOKEN
+            # Step 1: Authenticate
             session_url = f"{IG_BASE_URL}/session"
             headers = {
                 "Content-Type": "application/json",
@@ -56,7 +80,7 @@ class handler(BaseHTTPRequestHandler):
             }
             r = requests.post(session_url, headers=headers, json=data)
             if r.status_code != 200:
-                print("IG login failed:", r.text)
+                print(f"[{timestamp}] IG login failed:", r.text)
                 return
 
             auth_data = r.json()
@@ -75,15 +99,25 @@ class handler(BaseHTTPRequestHandler):
             order_payload = {
                 "epic": epic,
                 "expiry": "-",
-                "direction": "BUY" if direction.upper() == "BUY" else "SELL",
-                "size": 1,  # adjust size
+                "direction": direction,
+                "size": DEFAULT_ORDER_SIZE,
                 "orderType": "MARKET",
                 "currencyCode": "USD",
                 "forceOpen": True
             }
 
             r2 = requests.post(order_url, headers=order_headers, json=order_payload)
-            print("Order response:", r2.status_code, r2.text)
+            print(f"[{timestamp}] Order response ({direction} {epic}):", r2.status_code, r2.text)
 
         except Exception as e:
-            print("Error sending IG order:", e)
+            print(f"[{timestamp}] Error sending IG order:", e)
+
+    # --------------------------
+    # Standard OK response
+    # --------------------------
+    def respond_ok(self):
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        response = json.dumps({"status": "ok"})
+        self.wfile.write(response.encode('utf-8'))
