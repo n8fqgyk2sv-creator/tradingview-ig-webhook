@@ -1,18 +1,15 @@
-def handler(request):
-    if request.method != "POST":
-        return {
-            "statusCode": 405,
-            "body": "Method not allowed"
-        }
+import json
 
+def handler(request, context):
     try:
-        data = request.json()
-    except Exception:
-        data = None
-
-    print("Received webhook:", data)
+        body = request.json()
+    except:
+        body = {}
 
     return {
-        "statusCode": 200,
-        "body": "Webhook received"
+        "status": 200,
+        "body": json.dumps({
+            "message": "Webhook received successfully",
+            "received": body
+        })
     }
