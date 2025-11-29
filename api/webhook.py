@@ -1,15 +1,17 @@
+from http.server import BaseHTTPRequestHandler
 import json
 
-def handler(request, context):
+def handler(request, response):
+    """
+    Minimal webhook handler
+    """
     try:
-        body = request.json()
+        data = json.loads(request.body.decode())
     except:
-        body = {}
+        data = {}
 
-    return {
-        "status": 200,
-        "body": json.dumps({
-            "message": "Webhook received successfully",
-            "received": body
-        })
-    }
+    print("Received data:", data)
+
+    response.status_code = 200
+    response.set_header("Content-Type", "application/json")
+    response.send(json.dumps({"status": "ok"}))
