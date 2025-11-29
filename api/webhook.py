@@ -1,18 +1,19 @@
 import json
 
-# This is the function signature Vercel expects
 def handler(request):
     """
-    Minimal webhook handler for Vercel
+    Minimal Vercel Python 3.12 webhook handler
     """
     try:
-        payload = request.json()  # parse JSON body
+        # request.json() parses incoming JSON payload
+        payload = request.json()
     except Exception:
         payload = {}
 
-    print("Received payload:", payload)  # shows in Vercel logs
+    # Print payload to Vercel logs
+    print("Received payload:", payload)
 
-    # Return a valid response object
+    # Must return this structure for Vercel serverless functions
     return {
         "statusCode": 200,
         "headers": {"Content-Type": "application/json"},
